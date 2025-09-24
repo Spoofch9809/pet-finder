@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.venv/
+backend/.venv/
+.env*
+!.env.example
+
+# Next.js / Node
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-error.log*
+
+# Embedded UI export (rebuilt on demand)
+backend/static-ui/
+
+# Build artifacts
+dist/
+build/
+plugins/**/build/
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+.idea/
