@@ -1,0 +1,15 @@
+services:
+  db:
+    image: mariadb:11
+    container_name: petfinder-db
+    environment:
+      MARIADB_ROOT_PASSWORD: rootpwd
+      MARIADB_DATABASE: petfinder
+      MARIADB_USER: app
+      MARIADB_PASSWORD: apppwd
+    ports: ["3306:3306"]
+    volumes:
+      - dbdata:/var/lib/mysql
+      - ./docker/mariadb/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+volumes:
+  dbdata:
