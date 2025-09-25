@@ -1,0 +1,6 @@
+1) python -m venv .venv
+2) pip install -r dependencies.txt 
+
+To add lib, make sure your in venv
+1) to enter to venc .venv/script/activate
+2) pip freeze > dependencies.txt
