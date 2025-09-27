@@ -1,0 +1,15 @@
+/* Keep this minimal; most UI styles live in Shell.module.css */
+html,body{ height:100%; }
+body{ margin:0; }
+
+/* src/app/global.css */
+:root{
+  --sidebar-w: 240px;
+  --sidebar-bg: #f3f1eb;
+}
+
+html, body { height: 100%; }
+body { margin: 0; background: #e9ecef; }
+
+/* optional utility used in mock */
+.border-dashed { border: 2px dashed #d1d1d1; }

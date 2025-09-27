@@ -1,0 +1,20 @@
+/* src/app/(shell)/Shell.module.css */
+.app { display: flex; min-height: 100vh; }
+.sidebar { width: var(--sidebar-w); background: var(--sidebar-bg); border-right: 1px solid #e0ded7; }
+.brand { font-weight: 700; font-size: 1.25rem; }
+.navLink { border-radius: .6rem; color: #222; }
+.navActive { background: #e6e3dc; font-weight: 600; }
+.content { flex: 1; }
+.toolbar { position: sticky; top: 0; z-index: 1020; background: #fff; border-bottom: 1px solid #e5e5e5; }
+.mapBox { height: 68vh; background: #d7eafc; border: 2px dashed #9ec5fe; border-radius: 1rem; position: relative; overflow: hidden; }
+.pin { position: absolute; transform: translate(-50%, -100%); }
+.cardImg { object-fit: cover; height: 160px; }
+.petCardImg { object-fit: cover; height: 180px; }
+.panel { background: #fff; border-radius: 1rem; padding: 1rem; box-shadow: 0 .25rem .75rem rgba(0,0,0,.05); }
+.avatar { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; }
+
+/* mobile sidebar */
+@media (max-width: 992px){
+  .sidebar { position: fixed; left: -260px; top: 0; bottom: 0; z-index: 1030; transition: all .2s; }
+  .show { left: 0; }
+}

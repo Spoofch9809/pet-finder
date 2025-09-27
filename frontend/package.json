@@ -15,12 +15,17 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@googlemaps/js-api-loader": "^1.16.10",
     "bootstrap": "^5.3.8",
+    "bootstrap-icons": "^1.13.1",
+    "clsx": "^2.1.1",
     "next": "^15.5.3",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
   "devDependencies": {
+    "@types/bootstrap": "^5.2.10",
+    "@types/google.maps": "^3.58.1",
     "@types/node": "24.5.2",
     "@types/react": "19.1.13",
     "typescript": "5.9.2"
