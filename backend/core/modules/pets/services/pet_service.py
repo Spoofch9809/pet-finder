@@ -5,10 +5,8 @@ from ..schema import pet_schema as schema
 def get_all_pets(db: Session):
     return db.query(models.Pet).all()
 
-
 def get_pet(db: Session, pet_id: int):
     return db.query(models.Pet).filter(models.Pet.pet_id == pet_id).first()
-
 
 def create_pet(db: Session, pet_in: schema.PetCreate):
     pet = models.Pet(**pet_in.dict())
@@ -17,8 +15,7 @@ def create_pet(db: Session, pet_in: schema.PetCreate):
     db.refresh(pet)
     return pet
 
-
-def update_pet(db: Session, pet_id: int, pet_in: schema.PetCreate):
+def update_pet(db: Session, pet_id: int, pet_in: schema.PetUpdate):
     pet = get_pet(db, pet_id)
     if not pet:
         return None
@@ -27,7 +24,6 @@ def update_pet(db: Session, pet_id: int, pet_in: schema.PetCreate):
     db.commit()
     db.refresh(pet)
     return pet
-
 
 def delete_pet(db: Session, pet_id: int):
     pet = get_pet(db, pet_id)

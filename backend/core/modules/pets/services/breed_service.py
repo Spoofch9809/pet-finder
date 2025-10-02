@@ -5,10 +5,8 @@ from ..schema import breed_schema as schema
 def get_all_breeds(db: Session):
     return db.query(models.Breed).all()
 
-
 def get_breed(db: Session, breed_id: int):
     return db.query(models.Breed).filter(models.Breed.breed_id == breed_id).first()
-
 
 def create_breed(db: Session, breed_in: schema.BreedCreate):
     breed = models.Breed(**breed_in.dict())
@@ -17,8 +15,7 @@ def create_breed(db: Session, breed_in: schema.BreedCreate):
     db.refresh(breed)
     return breed
 
-
-def update_breed(db: Session, breed_id: int, breed_in: schema.BreedCreate):
+def update_breed(db: Session, breed_id: int, breed_in: schema.BreedBase):
     breed = get_breed(db, breed_id)
     if not breed:
         return None
@@ -26,7 +23,6 @@ def update_breed(db: Session, breed_id: int, breed_in: schema.BreedCreate):
     db.commit()
     db.refresh(breed)
     return breed
-
 
 def delete_breed(db: Session, breed_id: int):
     breed = get_breed(db, breed_id)

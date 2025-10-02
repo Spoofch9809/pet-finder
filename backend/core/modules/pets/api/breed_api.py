@@ -22,7 +22,7 @@ def create_breed(breed_in: schema.BreedCreate, db: Session = Depends(get_db)):
     return services.create_breed(db, breed_in)
 
 @breed_router.put("/{breed_id}", response_model=schema.BreedResponse)
-def update_breed(breed_id: int, breed_in: schema.BreedCreate, db: Session = Depends(get_db)):
+def update_breed(breed_id: int, breed_in: schema.BreedBase, db: Session = Depends(get_db)):
     breed = services.update_breed(db, breed_id, breed_in)
     if not breed:
         raise HTTPException(status_code=404, detail="Breed not found")

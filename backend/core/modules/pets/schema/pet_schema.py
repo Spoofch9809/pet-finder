@@ -12,6 +12,9 @@ class PetCreate(PetBase):
     breed_id: int
     species_id: int
 
+class PetUpdate(PetBase):
+    pass
+
 class PetResponse(PetBase):
     pet_id: int
     owner_id: int
@@ -19,4 +22,4 @@ class PetResponse(PetBase):
     species_id: int
 
     class Config:
-        from_attributes = True
+        orm_mode = True

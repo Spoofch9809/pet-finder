@@ -2,16 +2,14 @@ from pydantic import BaseModel
 from typing import Optional
 
 class PetPhotoBase(BaseModel):
-    picture: Optional[bytes] = None
-
+    pet_id: int
+    picture: bytes
 
 class PetPhotoCreate(PetPhotoBase):
-    pet_id: int
-
+    pass
 
 class PetPhotoResponse(PetPhotoBase):
     photo_id: int
-    pet_id: int
 
     class Config:
-        from_attributes = True
+        orm_mode = True

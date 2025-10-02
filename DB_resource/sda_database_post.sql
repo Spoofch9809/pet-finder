@@ -33,6 +33,7 @@ CREATE TABLE `post` (
   `time_stamp` timestamp NOT NULL,
   `status` bit(1) NOT NULL,
   PRIMARY KEY (`post_id`),
+  UNIQUE KEY `post_id_UNIQUE` (`post_id`),
   KEY `post_to_user_idx` (`user_id`),
   KEY `post_to_pet_idx` (`pet_id`),
   CONSTRAINT `post_to_pet` FOREIGN KEY (`pet_id`) REFERENCES `pet` (`pet_id`),
@@ -58,4 +59,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-10-02 22:34:00
+-- Dump completed on 2025-10-03  0:10:20

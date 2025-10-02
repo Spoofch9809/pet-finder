@@ -1,10 +1,10 @@
 from core.infrastructure.db import Base
-from sqlalchemy import Column, Integer, String, ForeignKe, TIMESTAMP, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, TIMESTAMP, DateTime, ForeignKey
 from sqlalchemy.dialects.mysql import LONGTEXT, BIT
 from sqlalchemy.orm import relationship
 
 class Post(Base):
-    __table__ = "post"
+    __tablename__ = "post"
 
     post_id = Column(Integer, primary_key=True, autoincrement=False)
     user_id = Column(Integer, ForeignKey("user.user_id"), nullable=False)

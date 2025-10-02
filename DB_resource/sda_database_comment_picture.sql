@@ -16,34 +16,30 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `comment`
+-- Table structure for table `comment_picture`
 --
 
-DROP TABLE IF EXISTS `comment`;
+DROP TABLE IF EXISTS `comment_picture`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `comment` (
+CREATE TABLE `comment_picture` (
+  `comment_picture_id` int NOT NULL,
   `comment_id` int NOT NULL,
-  `post_id` int NOT NULL,
-  `user_id` int NOT NULL,
-  `comment` longtext NOT NULL,
-  `time_stamp` timestamp NOT NULL,
-  PRIMARY KEY (`comment_id`,`post_id`,`user_id`),
-  UNIQUE KEY `comment_id_UNIQUE` (`comment_id`),
-  KEY `comment_to_post_idx` (`post_id`),
-  KEY `comment_to_user_idx` (`user_id`),
-  CONSTRAINT `comment_to_post` FOREIGN KEY (`post_id`) REFERENCES `post` (`post_id`),
-  CONSTRAINT `comment_to_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`user_id`)
+  `picture` blob NOT NULL,
+  PRIMARY KEY (`comment_picture_id`),
+  UNIQUE KEY `comment_picture_id_UNIQUE` (`comment_picture_id`),
+  KEY `comment_picture_to_comment_idx` (`comment_id`),
+  CONSTRAINT `comment_picture_to_comment` FOREIGN KEY (`comment_id`) REFERENCES `comment` (`comment_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `comment`
+-- Dumping data for table `comment_picture`
 --
 
-LOCK TABLES `comment` WRITE;
-/*!40000 ALTER TABLE `comment` DISABLE KEYS */;
-/*!40000 ALTER TABLE `comment` ENABLE KEYS */;
+LOCK TABLES `comment_picture` WRITE;
+/*!40000 ALTER TABLE `comment_picture` DISABLE KEYS */;
+/*!40000 ALTER TABLE `comment_picture` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 

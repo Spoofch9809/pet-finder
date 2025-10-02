@@ -25,7 +25,8 @@ DROP TABLE IF EXISTS `species`;
 CREATE TABLE `species` (
   `species_id` int NOT NULL,
   `species` varchar(45) NOT NULL,
-  PRIMARY KEY (`species_id`)
+  PRIMARY KEY (`species_id`),
+  UNIQUE KEY `species_id_UNIQUE` (`species_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -47,4 +48,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-10-02 22:34:00
+-- Dump completed on 2025-10-03  0:10:19
