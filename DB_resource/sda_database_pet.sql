@@ -26,14 +26,18 @@ CREATE TABLE `pet` (
   `pet_id` int NOT NULL,
   `owner_id` int NOT NULL,
   `name` varchar(45) NOT NULL,
-  `bread` varchar(45) NOT NULL,
-  `species` varchar(45) NOT NULL,
+  `breed_id` int NOT NULL,
+  `species_id` int NOT NULL,
   `color` varchar(45) NOT NULL,
   `age` int DEFAULT NULL,
   `description` mediumtext,
   PRIMARY KEY (`pet_id`),
   UNIQUE KEY `pet_id_UNIQUE` (`pet_id`),
   KEY `pet_to_user_idx` (`owner_id`),
+  KEY `pet_to_bread_idx` (`breed_id`),
+  KEY `pet_to_species_idx` (`species_id`),
+  CONSTRAINT `pet_to_breed` FOREIGN KEY (`breed_id`) REFERENCES `breed` (`breed_id`),
+  CONSTRAINT `pet_to_species` FOREIGN KEY (`species_id`) REFERENCES `species` (`species_id`),
   CONSTRAINT `pet_to_user` FOREIGN KEY (`owner_id`) REFERENCES `user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -56,4 +60,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-10-01  0:26:56
+-- Dump completed on 2025-10-02 22:34:00
