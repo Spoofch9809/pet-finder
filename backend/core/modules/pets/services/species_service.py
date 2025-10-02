@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
-from .. import models, schema
+from ..models import species_model as models
+from ..schema import species_schema as schema
 
 def get_all_species(db: Session):
     return db.query(models.Species).all()

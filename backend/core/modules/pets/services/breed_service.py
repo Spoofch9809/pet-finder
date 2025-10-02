@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
-from .. import models, schema
+from ..models import bread_model as models
+from ..schema import breed_schema as schema
 
 def get_all_breeds(db: Session):
     return db.query(models.Breed).all()

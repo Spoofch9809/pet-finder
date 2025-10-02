@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from .. import models, schema
+from ..models import pet_photo_model as models
 
 def get_all_pet_photos(db: Session):
     return db.query(models.PetPhoto).all()

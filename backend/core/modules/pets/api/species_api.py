@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from .. import services, schema
+from ..services import species_service as services
+from ..schema import species_schema as schema
 from infrastructure.db import get_db
 
 species_router = APIRouter(prefix="/species", tags=["species"])

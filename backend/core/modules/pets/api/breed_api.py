@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from .. import services, schema
+from ..services import breed_service as services
+from ..schema import breed_schema as schema
 from infrastructure.db import get_db
 
 breed_router = APIRouter(prefix="/breeds", tags=["breeds"])
