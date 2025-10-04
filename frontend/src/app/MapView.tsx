@@ -1,22 +1,52 @@
+// src/app/MapView.tsx
 "use client";
 
 import * as React from "react";
 import { Loader } from "@googlemaps/js-api-loader";
-import { useFilteredPosts, useStore } from "./(shell)/Store";
 import { useRouter } from "next/navigation";
+import { useFilteredPosts, useStore } from "./(shell)/Store";
+
+// Small helper for robust lat/lng extraction from your post shape
+function getLatLng(p: any): { lat?: number; lng?: number } {
+  const lat =
+    p?.locationLat ?? p?.lat ?? p?.coords?.lat ?? p?.location?.lat ?? undefined;
+  const lng =
+    p?.locationLng ?? p?.lng ?? p?.coords?.lng ?? p?.location?.lng ?? undefined;
+  return { lat, lng };
+}
+
+// Haversine distance (in kilometers)
+function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 export default function MapView() {
-  const posts = useFilteredPosts();
-  const { userLocation, radiusKm } = useStore();
   const router = useRouter();
 
+  // Posts already filtered by your topbar filters (search, status, species, etc.)
+  const basePosts = useFilteredPosts();
+
+  // From the store: user location & current radius
+  const { userLocation, radiusKm } = useStore();
+
+  // Refs for Google Map & objects
   const mapBox = React.useRef<HTMLDivElement | null>(null);
   const map = React.useRef<google.maps.Map | null>(null);
   const userMarker = React.useRef<google.maps.Marker | null>(null);
   const circle = React.useRef<google.maps.Circle | null>(null);
   const postMarkers = React.useRef<google.maps.Marker[]>([]);
 
-  // 1) Init Google Maps once
+  // 1) Initialize Google Maps once
   React.useEffect(() => {
     const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!key) {
@@ -39,7 +69,7 @@ export default function MapView() {
       .catch((e) => console.error("Google Maps load error", e));
   }, []);
 
-  // 2) Place/move the user location marker (and center ONLY when userLocation changes)
+  // 2) User location marker & circle (center only when userLocation changes)
   React.useEffect(() => {
     if (!map.current || !userLocation) return;
 
@@ -78,47 +108,47 @@ export default function MapView() {
       circle.current.setCenter(userLocation);
     }
 
+    // Center ONLY because user location changed
     map.current.setCenter(userLocation);
-  }, [userLocation, radiusKm]); // radius in dep list is fine; center won't change when only radius changes
+  }, [userLocation]);
 
-  // 3) When radius changes, just resize the circle — DO NOT recenter the map
+  // 3) Radius change -> only resize circle (no recenters)
   React.useEffect(() => {
     if (!circle.current) return;
     circle.current.setRadius((radiusKm || 0) * 1000);
   }, [radiusKm]);
 
-  // 4) Render post markers (+ click to go to details)
+  // 4) Render markers for posts, filtered by radius if we have a userLocation
   React.useEffect(() => {
     if (!map.current) return;
 
-    // clear previous markers
+    // Clear old markers
     postMarkers.current.forEach((m) => m.setMap(null));
     postMarkers.current = [];
 
-    // If you want *only* Lost posts, uncomment next line:
-    // const visiblePosts = posts.filter(p => (p as any).status === "Lost");
-    const visiblePosts = posts;
+    // Filter by distance if we know the user's location and a radius
+    const visiblePosts = basePosts.filter((p: any) => {
+      const { lat, lng } = getLatLng(p);
+      if (typeof lat !== "number" || typeof lng !== "number") return false;
 
-    visiblePosts.forEach((p) => {
-      // --- Normalize lat/lng from your post shape ---
-      const lat =
-        (p as any).locationLat ??
-        (p as any).lat ??
-        (p as any).coords?.lat ??
-        (p as any).location?.lat;
+      if (!userLocation || !radiusKm || radiusKm <= 0) {
+        return true; // If no user location or no radius set -> show all
+      }
 
-      const lng =
-        (p as any).locationLng ??
-        (p as any).lng ??
-        (p as any).coords?.lng ??
-        (p as any).location?.lng;
+      const dist = getDistanceKm(userLocation.lat, userLocation.lng, lat, lng);
+      return dist <= radiusKm;
+    });
 
+    // Add markers for visible posts
+    visiblePosts.forEach((p: any) => {
+      const { lat, lng } = getLatLng(p);
       if (typeof lat !== "number" || typeof lng !== "number") return;
 
-      const status = (p as any).status as "Lost" | "Found" | undefined;
+      // Different color by status (optional)
+      const status = (p?.status as "Lost" | "Found" | undefined) ?? "Lost";
       const color = status === "Found" ? "#2e7d32" : "#d32f2f";
 
-      const m = new google.maps.Marker({
+      const marker = new google.maps.Marker({
         map: map.current!,
         position: { lat, lng },
         icon: {
@@ -129,25 +159,25 @@ export default function MapView() {
           strokeWeight: 1,
           scale: 5.5,
         },
-        title: (p as any).name || "Pet",
+        title: p?.name || "Pet",
       });
 
-      // 👉 Navigate to details on click
-      m.addListener("click", () => {
-        const id = (p as any).id;
-        if (id) router.push(`/posts/${id}`);
+      // Navigate to details on click
+      marker.addListener("click", () => {
+        // must exist for navigation
+        if (p?.id) router.push(`/posts/${p.id}`);
       });
 
-      postMarkers.current.push(m);
+      postMarkers.current.push(marker);
     });
 
-    // Auto-fit only when we don't yet have a user location
+    // If there is NO user location, fit to markers once so user sees them
     if (!userLocation && postMarkers.current.length) {
-      const b = new google.maps.LatLngBounds();
-      postMarkers.current.forEach((m) => b.extend(m.getPosition()!));
-      map.current.fitBounds(b);
+      const bounds = new google.maps.LatLngBounds();
+      postMarkers.current.forEach((m) => bounds.extend(m.getPosition()!));
+      map.current.fitBounds(bounds);
     }
-  }, [posts, userLocation, router]);
+  }, [basePosts, userLocation, radiusKm]);
 
   return (
     <div
@@ -157,7 +187,6 @@ export default function MapView() {
         height: 480,
         border: "2px dashed #cfe1ff",
         borderRadius: 12,
-        cursor: "default",
       }}
     />
   );
