@@ -1,3 +1,4 @@
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from ..models import pet_model as models
 from ..schema import pet_schema as schema
@@ -9,7 +10,8 @@ def get_pet(db: Session, pet_id: int):
     return db.query(models.Pet).filter(models.Pet.pet_id == pet_id).first()
 
 def create_pet(db: Session, pet_in: schema.PetCreate):
-    pet = models.Pet(**pet_in.dict())
+    next_id = (db.query(func.max(models.Pet.pet_id)).scalar() or 0) + 1
+    pet = models.Pet(pet_id=next_id, **pet_in.dict())
     db.add(pet)
     db.commit()
     db.refresh(pet)

@@ -1,10 +1,11 @@
-// src/app/posts/[id]/page.tsx
+﻿// src/app/posts/[id]/page.tsx
 "use client";
 
 import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 import styles from "../../(shell)/Shell.module.css";
 import { useStore } from "../../(shell)/Store";
+import { formatLocationLabel, resolveLatLng } from "../../(shell)/location";
 
 export default function PostDetails() {
   const { id } = useParams<{ id: string }>();
@@ -30,17 +31,9 @@ export default function PostDetails() {
     ? new Date(post.createdAt).toLocaleString()
     : "—";
 
-  const lat =
-    (post as any).locationLat ??
-    (post as any).lat ??
-    (post as any).coords?.lat ??
-   (post as any).location?.lat;
+  const { lat, lng } = resolveLatLng(post);
 
-  const lng =
-    (post as any).locationLng ??
-    (post as any).lng ??
-    (post as any).coords?.lng ??
-    (post as any).location?.lng;
+  const locationLabel = formatLocationLabel(post);
 
   // Lightweight embedded map (no API key required).
   const mapSrc =
@@ -88,7 +81,7 @@ export default function PostDetails() {
               <h4 className="mb-2">{post.name || "—"}</h4>
               <div className="small text-muted mb-2">
                 <i className="bi bi-geo-alt me-1" />
-                {post.location || "Unknown location"}
+                {locationLabel}
               </div>
               <div className="small text-muted mb-3">
                 <i className="bi bi-calendar-event me-1" />

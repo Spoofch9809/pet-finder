@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 import styles from "../(shell)/Shell.module.css";
 import { useFilteredPosts } from "../(shell)/Store";
+import { formatLocationLabel } from "../(shell)/location";
 import Link from "next/link";
 
 export default function MyPosts(){
@@ -17,7 +18,7 @@ export default function MyPosts(){
                 <div className="d-flex align-items-center justify-content-between">
                   <h6 className="mb-0">{c.name}</h6>
                 </div>
-                <div className="text-muted small">{c.location || "Unknown"}</div>
+                <div className="text-muted small">{formatLocationLabel(c)}</div>
               </div>
               <div className="card-footer bg-white">
                 <Link className="btn btn-sm w-100 btn-outline-secondary" href={`/posts/${c.id}`}>View Details</Link>

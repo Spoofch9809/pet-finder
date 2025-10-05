@@ -17,6 +17,7 @@ export default function Create() {
     breed: "",
     // keep a free-text location label for display/search
     location: "",
+    locationAuto: true,
     status: "Lost" as Status,
     description: "",
     photoUrl: "",
@@ -29,7 +30,13 @@ export default function Create() {
 
   // --- helpers ---
   function update<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
-    setForm((f) => ({ ...f, [k]: v }));
+    setForm((f) => {
+      const next = { ...f, [k]: v };
+      if (k === "location") {
+        next.locationAuto = false;
+      }
+      return next;
+    });
   }
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -46,7 +53,8 @@ export default function Create() {
     if (form.status === "Lost" && (form.locationLat == null || form.locationLng == null)) {
       return alert("Please drop a pin on the map for the lost location.");
     }
-    const id = addPost({ ...form });
+    const { locationAuto, ...payload } = form;
+    const id = addPost({ ...payload });
     router.push(`/posts/${id}`);
   }
 
@@ -54,6 +62,7 @@ export default function Create() {
   const mapBox = React.useRef<HTMLDivElement | null>(null);
   const map = React.useRef<google.maps.Map | null>(null);
   const marker = React.useRef<google.maps.Marker | null>(null);
+  const geocoder = React.useRef<google.maps.Geocoder | null>(null);
   const searchInputRef = React.useRef<HTMLInputElement | null>(null);
   const autocompleteRef = React.useRef<google.maps.places.Autocomplete | null>(null);
 
@@ -74,6 +83,8 @@ export default function Create() {
           mapTypeControl: false,
         });
 
+        geocoder.current = new google.maps.Geocoder();
+
         // click to place/move marker
         map.current.addListener("click", (ev: google.maps.MapMouseEvent) => {
           if (!ev.latLng) return;
@@ -93,8 +104,8 @@ export default function Create() {
               map.current!.panTo(loc);
               map.current!.setZoom(15);
               placeMarker(loc.lat(), loc.lng());
-              // set a human-readable label if available
-              update("location", place.formatted_address || place.name || "");
+              const label = place.formatted_address || place.name || "";
+              setForm((prev) => ({ ...prev, location: label, locationAuto: true }));
             }
           });
         }
@@ -130,8 +141,28 @@ export default function Create() {
   }
 
   function updateCoords(lat: number, lng: number) {
-    update("locationLat", lat);
-    update("locationLng", lng);
+    setForm((prev) => {
+      const next = { ...prev, locationLat: lat, locationLng: lng };
+      if (prev.locationAuto || !prev.location?.trim()) {
+        next.locationAuto = true;
+        next.location = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      }
+      return next;
+    });
+    geocodeLatLng(lat, lng);
+  }
+
+  function geocodeLatLng(lat: number, lng: number) {
+    if (!geocoder.current) return;
+    geocoder.current.geocode({ location: { lat, lng } }, (results, status) => {
+      if (status !== "OK" || !results?.length) return;
+      const label = results[0]?.formatted_address || "";
+      if (!label) return;
+      setForm((prev) => {
+        if (!prev.locationAuto && prev.location?.trim()) return prev;
+        return { ...prev, location: label, locationAuto: true };
+      });
+    });
   }
 
   async function useMyLocation() {

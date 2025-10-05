@@ -1,5 +1,6 @@
-"use client";
+﻿"use client";
 import { useStore } from "./Store";
+import { formatLocationLabel } from "./location";
 import React from "react";
 
 export default function Feed() {
@@ -17,7 +18,7 @@ export default function Feed() {
             <h5 className="card-title mb-1">
               {p.name} <span className={`badge bg-${p.status === "Found" ? "success" : "danger"} ms-2`}>{p.status}</span>
             </h5>
-            <small className="text-muted">{p.location || "Unknown location"} · {new Date(p.createdAt).toLocaleString()}</small>
+            <small className="text-muted">{formatLocationLabel(p)} - {new Date(p.createdAt).toLocaleString()}</small>
             <p className="mt-2 mb-2">{p.description || "No description provided."}</p>
 
             {/* Actions */}

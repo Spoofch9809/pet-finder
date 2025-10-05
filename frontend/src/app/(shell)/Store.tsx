@@ -103,6 +103,31 @@ type Store = {
 
 const StoreCtx = React.createContext<Store | null>(null);
 
+
+function persistJSON(key: string, value: unknown) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.warn(`pf: failed to persist ${key}`, error);
+    if (error instanceof DOMException && error.name === "QuotaExceededError") {
+      console.warn("pf: browser storage quota exceeded; data will stay for this session only.");
+    }
+  }
+}
+
+function persistString(key: string, value: string) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(key, value);
+  } catch (error) {
+    console.warn(`pf: failed to persist ${key}`, error);
+    if (error instanceof DOMException && error.name === "QuotaExceededError") {
+      console.warn("pf: browser storage quota exceeded; data will stay for this session only.");
+    }
+  }
+}
+
 /* =======================
    Defaults
 ======================= */
@@ -236,32 +261,25 @@ export default function StoreProvider({
 
   // ----- Persist -----
   React.useEffect(() => {
-    if (typeof window !== "undefined")
-      localStorage.setItem("pf.posts", JSON.stringify(posts));
+    persistJSON("pf.posts", posts);
   }, [posts]);
   React.useEffect(() => {
-    if (typeof window !== "undefined")
-      localStorage.setItem("pf.pets", JSON.stringify(pets));
+    persistJSON("pf.pets", pets);
   }, [pets]);
   React.useEffect(() => {
-    if (typeof window !== "undefined")
-      localStorage.setItem("pf.profile", JSON.stringify(profile));
+    persistJSON("pf.profile", profile);
   }, [profile]);
   React.useEffect(() => {
-    if (typeof window !== "undefined")
-      localStorage.setItem("pf.filters", JSON.stringify(filters));
+    persistJSON("pf.filters", filters);
   }, [filters]);
   React.useEffect(() => {
-    if (typeof window !== "undefined")
-      localStorage.setItem("pf.radiusKm", String(radiusKm));
+    persistString("pf.radiusKm", String(radiusKm));
   }, [radiusKm]);
   React.useEffect(() => {
-    if (typeof window !== "undefined")
-      localStorage.setItem("pf.userLocation", JSON.stringify(userLocation));
+    persistJSON("pf.userLocation", userLocation);
   }, [userLocation]);
   React.useEffect(() => {
-    if (typeof window !== "undefined")
-      localStorage.setItem("pf.notifications", JSON.stringify(notifications));
+    persistJSON("pf.notifications", notifications);
   }, [notifications]);
 
   // ----- Post/Pet mutations -----

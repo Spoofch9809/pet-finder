@@ -19,3 +19,4 @@ class Pet(Base):
     species = relationship("Species", back_populates="pets")
 
     photos = relationship("PetPhoto", back_populates="pet")
+    posts = relationship("Post", back_populates="pet")

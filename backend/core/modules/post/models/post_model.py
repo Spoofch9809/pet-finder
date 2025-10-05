@@ -11,7 +11,7 @@ class Post(Base):
     pet_id = Column(Integer, ForeignKey("pet.pet_id"), nullable=False)
     description = Column(Text)
     location = Column(Text)
-    share_location = Column(String(255))  # store as text for simplicity
+    share_location = Column(Text)
     lost_time = Column(DateTime)
     time_stamp = Column(TIMESTAMP, nullable=False)
     status = Column(BIT(1), nullable=False)

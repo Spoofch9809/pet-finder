@@ -1,10 +1,17 @@
-from pydantic import BaseModel
-from typing import Optional
+from __future__ import annotations
+
 from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict
+
+from .post_picture_schema import PostPictureResponse
+
 
 class PostBase(BaseModel):
     description: Optional[str] = None
     location: Optional[str] = None
+    share_location: Optional[str] = None
     lost_time: Optional[datetime] = None
     status: bool
 
@@ -19,6 +26,9 @@ class PostResponse(PostBase):
     user_id: int
     pet_id: int
     time_stamp: datetime
+    pictures: list[PostPictureResponse] = []
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
+
+
+PostResponse.model_rebuild()
