@@ -6,13 +6,60 @@ import { useParams, useRouter } from "next/navigation";
 import styles from "../../(shell)/Shell.module.css";
 import { useStore } from "../../(shell)/Store";
 import { formatLocationLabel, resolveLatLng } from "../../(shell)/location";
+import { requestChatOpen } from "../../(shell)/chatEvents";
+import { usersAPI, type User as BackendUser } from "../../services/api";
+
+const UID_SAFE_CHARS = /[^a-zA-Z0-9_.-]/g;
+
+function sanitizeUidValue(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") {
+    if (Number.isFinite(value)) return String(value);
+    return null;
+  }
+  const str = String(value).trim();
+  if (!str) return null;
+  const sanitized = str.replace(UID_SAFE_CHARS, "");
+  return sanitized || null;
+}
 
 export default function PostDetails() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { getPost, deletePost, markFound } = useStore();
+  const { getPost, deletePost, markFound, authUser, isAuthenticated } =
+    useStore();
 
   const post = getPost(id);
+  const [ownerUser, setOwnerUser] = React.useState<BackendUser | null>(null);
+
+  const initialOwnerId =
+    typeof post?.ownerId === "number" ? post.ownerId : undefined;
+
+  React.useEffect(() => {
+    if (!initialOwnerId) {
+      setOwnerUser(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    usersAPI
+      .get(initialOwnerId)
+      .then((user) => {
+        if (!cancelled) {
+          setOwnerUser(user);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          console.warn("Failed to load owner profile", error);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialOwnerId]);
 
   if (!post) {
     return (
@@ -34,6 +81,66 @@ export default function PostDetails() {
   const { lat, lng } = resolveLatLng(post);
 
   const locationLabel = formatLocationLabel(post);
+
+  const ownerAccountId = React.useMemo(() => {
+    if (typeof initialOwnerId === "number") return initialOwnerId;
+    const sanitizedUserId = sanitizeUidValue(ownerUser?.user_id);
+    if (sanitizedUserId && Number.isFinite(Number(sanitizedUserId))) {
+      return Number(sanitizedUserId);
+    }
+    return undefined;
+  }, [initialOwnerId, ownerUser?.user_id]);
+
+  const ownerUid = React.useMemo(() => {
+    const fromId = sanitizeUidValue(ownerAccountId);
+    if (fromId) return `pf_user_${fromId}`;
+
+    const fromUsername = sanitizeUidValue(ownerUser?.username);
+    if (fromUsername) return `pf_user_${fromUsername}`;
+
+    if (ownerUser?.email) {
+      const sanitizedEmail = ownerUser.email.replace(/[^a-zA-Z0-9]/g, "");
+      if (sanitizedEmail) {
+        return `pf_user_${sanitizedEmail}`;
+      }
+    }
+    return null;
+  }, [ownerAccountId, ownerUser?.username, ownerUser?.email]);
+
+  const ownerDisplayName = React.useMemo(() => {
+    if (ownerUser) {
+      const fullName = `${ownerUser.firstname || ""} ${
+        ownerUser.lastname || ""
+      }`.trim();
+      if (fullName) return fullName;
+      if (ownerUser.username) return ownerUser.username;
+      if (ownerUser.email) return ownerUser.email;
+    }
+    if (post?.ownerId) return `User #${post.ownerId}`;
+    return "Post owner";
+  }, [ownerUser, post?.ownerId]);
+
+  const isOwner =
+    typeof authUser?.user_id === "number" &&
+    typeof ownerAccountId === "number" &&
+    authUser.user_id === ownerAccountId;
+  const handleMessageOwner = React.useCallback(() => {
+    if (!ownerUid) {
+      alert("Owner chat is temporarily unavailable.");
+      return;
+    }
+    if (isOwner) return;
+
+    if (!isAuthenticated) {
+      router.push("/signin");
+      return;
+    }
+
+    requestChatOpen({
+      uid: ownerUid,
+      name: ownerDisplayName,
+    });
+  }, [ownerUid, ownerDisplayName, isOwner, isAuthenticated, router]);
 
   // Lightweight embedded map (no API key required).
   const mapSrc =
@@ -168,17 +275,24 @@ export default function PostDetails() {
               <button
                 className="btn btn-success"
                 type="button"
-                onClick={() => alert("Message sent (mock)")}
+                onClick={handleMessageOwner}
+                disabled={isOwner}
+                title={isOwner ? "You are the owner of this post." : undefined}
               >
-                Send Message
+                Message Owner
               </button>
+              {!isAuthenticated && !isOwner && (
+                <div className="text-muted small">
+                  Sign in to send a message to the owner.
+                </div>
+              )}
 
               <button className="btn btn-secondary" onClick={onMarkFound}>
                 Mark As Found
               </button>
 
               <button className="btn btn-outline-danger" onClick={onDelete}>
-                Delete Post
+                 Close Case
               </button>
             </div>
           </div>

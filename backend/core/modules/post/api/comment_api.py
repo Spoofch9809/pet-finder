@@ -2,17 +2,21 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ..services import comment_picture_service, comment_service
 from ..schema import comment_picture_schema, comment_schema
-from core.infrastructure.db import get_session
+from ....infrastructure.db import get_session
 
 router = APIRouter(prefix="/comment", tags=["posts"])
 @router.post("/{post_id}/comments", response_model=comment_schema.CommentResponse)
-def add_comment(post_id: int, 
-                comment_in: comment_schema.CommentBase, 
-                db: Session = Depends(get_session)):
-    
-    return comment_service.add_comment(db, 
-                                       comment_schema.CommentCreate(post_id=post_id, 
-                                                                    **comment_in.dict()))
+def add_comment(
+    post_id: int,
+    comment_in: comment_schema.CommentCreatePayload,
+    db: Session = Depends(get_session),
+):
+    payload = comment_schema.CommentCreate(
+        post_id=post_id,
+        user_id=comment_in.user_id,
+        comment=comment_in.comment,
+    )
+    return comment_service.add_comment(db, payload)
 
 @router.get("/{post_id}/comments", response_model=list[comment_schema.CommentResponse])
 def get_comments(post_id: int, 

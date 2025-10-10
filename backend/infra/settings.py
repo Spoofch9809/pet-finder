@@ -5,6 +5,9 @@ class Settings(BaseSettings):
     DB_HOST: str = "127.0.0.1"
     DB_PORT: int = 3306
     DB_NAME: str = "sda_database"
+    SECRET_KEY: str = "change-me-in-prod"
+    ACCESS_TOKEN_EXPIRE_SECONDS: int = 3600
+
     @property
     def SQLALCHEMY_URL(self) -> str:
         return f"mysql+pymysql://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"

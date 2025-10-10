@@ -5,6 +5,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from .comment_schema import CommentResponse
 from .post_picture_schema import PostPictureResponse
 
 
@@ -21,14 +22,20 @@ class PostCreate(PostBase):
     pet_id: int
 
 
+class PostUpdate(BaseModel):
+    description: Optional[str] = None
+    location: Optional[str] = None
+    share_location: Optional[str] = None
+    lost_time: Optional[datetime] = None
+    status: Optional[bool] = None
+
+
 class PostResponse(PostBase):
     post_id: int
     user_id: int
     pet_id: int
     time_stamp: datetime
     pictures: list[PostPictureResponse] = []
+    comments: list[CommentResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
-
-
-PostResponse.model_rebuild()

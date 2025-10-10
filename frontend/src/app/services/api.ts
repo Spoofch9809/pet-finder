@@ -13,6 +13,12 @@ export interface User {
   address?: string;
 }
 
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
+}
+
 export interface Pet {
   pet_id?: number;
   owner_id: number;
@@ -35,6 +41,7 @@ export interface Post {
   time_stamp?: string;
   status: boolean; // true = Found (1), false = Lost (0)
   pictures?: PostPicture[];
+  comments?: Comment[];
 }
 
 export interface PostPicture {
@@ -54,17 +61,35 @@ export interface Species {
   species: string;
 }
 
+export interface Comment {
+  comment_id?: number;
+  post_id: number;
+  user_id: number;
+  comment: string;
+  time_stamp?: string;
+}
+
 // ===== Generic fetch wrapper =====
 async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
   console.log('API Request:', url, options?.method || 'GET');
-  
+  const headers = new Headers(options?.headers ?? {});
+  headers.set("Content-Type", "application/json");
+
+  if (typeof window !== "undefined") {
+    try {
+      const token = localStorage.getItem("pfAuthToken");
+      if (token) {
+        headers.set("Authorization", `Bearer ${token}`);
+      }
+    } catch (error) {
+      console.warn("API: unable to read auth token", error);
+    }
+  }
+
   const res = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
     ...options,
+    headers,
   });
 
   if (!res.ok) {
@@ -94,6 +119,19 @@ export const usersAPI = {
     }),
   delete: (id: number) => 
     apiFetch<User>(`/users/${id}`, { method: "DELETE" }),
+};
+
+export const authAPI = {
+  login: (identifier: string, password: string) =>
+    apiFetch<TokenResponse>("/users/login", {
+      method: "POST",
+      body: JSON.stringify({ identifier, password }),
+    }),
+  signup: (payload: Omit<User, "user_id">) =>
+    apiFetch<TokenResponse>("/users/signup", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };
 
 // ===== PETS API =====
@@ -159,6 +197,11 @@ export const postsAPI = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  update: (id: number, data: Partial<Omit<Post, 'post_id'>>) =>
+    apiFetch<Post>(`/posts/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
   delete: (id: number) => 
     apiFetch<void>(`/posts/${id}`, { method: "DELETE" }),
 };
@@ -182,6 +225,16 @@ export const petPhotosAPI = {
     apiFetch<PetPhoto>(`/pet-photos/${photoId}`, {
       method: "DELETE",
     }),
+};
+
+export const commentsAPI = {
+  add: (postId: number, data: { user_id: number; comment: string }) =>
+    apiFetch<Comment>(`/comment/${postId}/comments`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  list: (postId: number) =>
+    apiFetch<Comment[]>(`/comment/${postId}/comments`),
 };
 
 // ===== Helper: Test connection =====

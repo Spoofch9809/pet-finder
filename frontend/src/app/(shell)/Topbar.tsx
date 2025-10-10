@@ -1,16 +1,38 @@
 "use client";
-import { useStore } from "./Store";
+import { useStore, AUTH_EVENT_NAME, AUTH_STORAGE_KEYS } from "./Store";
 import Link from "next/link";
 import styles from "./Shell.module.css";
 import React from "react";
+import { useRouter } from "next/navigation";
 
 export default function Topbar({ onMenu }: { onMenu: () => void }) {
   const {
-    filters, setFilters,
-    radiusKm, setRadiusKm,
-    userLocation, setUserLocation,
-    unreadCount
+    filters,
+    setFilters,
+    radiusKm,
+    setRadiusKm,
+    userLocation,
+    setUserLocation,
+    unreadCount,
+    authUser,
+    isAuthenticated,
   } = useStore();
+  const router = useRouter();
+
+  const handleLogout = React.useCallback(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.removeItem("pfAuthToken");
+    window.localStorage.removeItem("pfAuthUser");
+    AUTH_STORAGE_KEYS.forEach((key) => {
+      try {
+        window.localStorage.removeItem(key);
+      } catch (error) {
+        console.warn("pf: failed to clear cache on logout", error);
+      }
+    });
+    window.dispatchEvent(new Event(AUTH_EVENT_NAME));
+    router.push("/signin");
+  }, [router]);
 
   // Try to get current browser location
   async function handleSetMyLocation() {
@@ -109,14 +131,55 @@ export default function Topbar({ onMenu }: { onMenu: () => void }) {
           )}
         </Link>
 
-        {/* Profile Avatar */}
-        <Link href="/signin">
-          <img
-            src="https://i.pravatar.cc/80?img=12"
-            className={`border ${styles.avatar}`}
-            alt="avatar"
-          />
-        </Link>
+        {/* Profile / Auth */}
+        {isAuthenticated && authUser ? (
+          <div className="dropdown">
+            <button
+              className="btn btn-outline-secondary dropdown-toggle d-flex align-items-center gap-2"
+              data-bs-toggle="dropdown"
+            >
+              <img
+                src="https://i.pravatar.cc/80?img=12"
+                className={`border ${styles.avatar}`}
+                alt="avatar"
+              />
+              <span className="text-truncate" style={{ maxWidth: 140 }}>
+                {authUser.firstname
+                  ? `${authUser.firstname} ${authUser.lastname || ""}`.trim()
+                  : authUser.username || "Profile"}
+              </span>
+            </button>
+            <ul className="dropdown-menu dropdown-menu-end">
+              <li>
+                <button className="dropdown-item" onClick={() => router.push("/myposts")}>
+                  My Posts
+                </button>
+              </li>
+              <li>
+                <button className="dropdown-item" onClick={() => router.push("/mypets")}>
+                  My Pets
+                </button>
+              </li>
+              <li>
+                <hr className="dropdown-divider" />
+              </li>
+              <li>
+                <button className="dropdown-item text-danger" onClick={handleLogout}>
+                  Log out
+                </button>
+              </li>
+            </ul>
+          </div>
+        ) : (
+          <div className="d-flex gap-2">
+            <Link href="/signin" className="btn btn-outline-primary">
+              Sign In
+            </Link>
+            <Link href="/signup" className="btn btn-primary">
+              Sign Up
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );

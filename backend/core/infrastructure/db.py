@@ -20,15 +20,15 @@ def get_session():
 import importlib
 
 for module_path in [
-    'core.modules.user.models.user_model',
-    'core.modules.pets.models.pet_model',
-    'core.modules.pets.models.species_model',
-    'core.modules.pets.models.bread_model',
-    'core.modules.pets.models.pet_photo_model',
-    'core.modules.post.models.post_model',
-    'core.modules.post.models.post_picture_model',
-    'core.modules.post.models.comment_model',
-    'core.modules.post.models.comment_picture_model',
+    "..modules.user.models.user_model",
+    "..modules.pets.models.pet_model",
+    "..modules.pets.models.species_model",
+    "..modules.pets.models.bread_model",
+    "..modules.pets.models.pet_photo_model",
+    "..modules.post.models.post_model",
+    "..modules.post.models.post_picture_model",
+    "..modules.post.models.comment_model",
+    "..modules.post.models.comment_picture_model",
 ]:
-    importlib.import_module(module_path)
+    importlib.import_module(module_path, package=__package__)
 

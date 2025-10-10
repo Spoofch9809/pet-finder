@@ -5,6 +5,7 @@ import StoreProvider from "./Store";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import styles from "./Shell.module.css";
+import ChatWidget from "./ChatWidget";
 
 export default function ClientShell({ children }: { children: React.ReactNode }) {
   React.useEffect(() => { import("bootstrap/dist/js/bootstrap.bundle.min.js"); }, []);
@@ -19,6 +20,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
           {children}
         </main>
       </div>
+      <ChatWidget />
     </StoreProvider>
   );
 }

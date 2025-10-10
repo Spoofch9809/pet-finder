@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 from ..services import pet_photo_service as services
 from ..schema import pet_photo_schema as schema
-from core.infrastructure.db import get_session
+from ....infrastructure.db import get_session
 
 router = APIRouter(prefix="/pet-photos", tags=["pet-photos"])
 

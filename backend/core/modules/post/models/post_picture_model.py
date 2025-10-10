@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, ForeignKey, LargeBinary, String
 from sqlalchemy.orm import relationship
-from core.infrastructure.db import Base
+from ....infrastructure.db import Base
 
 
 class PostPicture(Base):

@@ -1,10 +1,19 @@
+import sys
+from importlib import import_module
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
+# Ensure project root is on sys.path so absolute imports work even when running from backend/app
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
+
 app = FastAPI(title="Pet Finder API", version="1.0.0")
 
-# ===== CORS Configuration (MUST BE FIRST) =====
+# ===== CORS Configuration =====
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -18,69 +27,44 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ===== Basic Routes =====
+
 @app.get("/", include_in_schema=False)
 def root():
     return RedirectResponse(url="/docs", status_code=307)
+
 
 @app.get("/health")
 def health_check():
     return {"status": "ok", "message": "Backend is running"}
 
-# ===== Import and Register Routers =====
-try:
-    from core.modules.user.api.user_api import router as user_router
-    app.include_router(user_router, prefix="/api", tags=["users"])
-    print("✓ User router registered")
-except Exception as e:
-    print(f"✗ Failed to load user router: {e}")
 
-try:
-    from core.modules.pets.api.pet_api import router as pet_router
-    app.include_router(pet_router, prefix="/api", tags=["pets"])
-    print("✓ Pet router registered")
-except Exception as e:
-    print(f"✗ Failed to load pet router: {e}")
+def register_router(name: str, import_path: str, attr: str = "router", prefix: str = "/api", tags: list[str] | None = None):
+    try:
+        module = import_module(import_path)
+        router = getattr(module, attr)
+        include_kwargs = {"prefix": prefix}
+        if tags is not None:
+            include_kwargs["tags"] = tags
+        app.include_router(router, **include_kwargs)
+        print(f"[PetFinder] Registered {name} routes")
+    except Exception as exc:
+        print(f"[PetFinder] Failed to register {name} routes: {exc}")
 
-try:
-    from core.modules.pets.api.breed_api import breed_router
-    app.include_router(breed_router, prefix="/api", tags=["breeds"])
-    print("✓ Breed router registered")
-except Exception as e:
-    print(f"✗ Failed to load breed router: {e}")
 
-try:
-    from core.modules.pets.api.species_api import router as species_router
-    app.include_router(species_router, prefix="/api", tags=["species"])
-    print("✓ Species router registered")
-except Exception as e:
-    print(f"✗ Failed to load species router: {e}")
+# ===== Register Routers =====
+register_router("user", "backend.core.modules.user.api.user_api", tags=["users"])
+register_router("pet", "backend.core.modules.pets.api.pet_api", tags=["pets"])
+register_router("breed", "backend.core.modules.pets.api.breed_api", attr="breed_router", tags=["breeds"])
+register_router("species", "backend.core.modules.pets.api.species_api", tags=["species"])
+register_router("pet photo", "backend.core.modules.pets.api.pet_photo_api", tags=["pet-photos"])
+register_router("post", "backend.core.modules.post.api.post_api", tags=["posts"])
+register_router("comment", "backend.core.modules.post.api.comment_api", tags=["comments"])
 
-try:
-    from core.modules.pets.api.pet_photo_api import router as pet_photo_router
-    app.include_router(pet_photo_router, prefix="/api", tags=["pet-photos"])
-    print("✓ Pet photo router registered")
-except Exception as e:
-    print(f"✗ Failed to load pet photo router: {e}")
-
-try:
-    from core.modules.post.api.post_api import router as post_router
-    app.include_router(post_router, prefix="/api", tags=["posts"])
-    print("✓ Post router registered")
-except Exception as e:
-    print(f"✗ Failed to load post router: {e}")
-
-try:
-    from core.modules.post.api.comment_api import router as comment_router
-    app.include_router(comment_router, prefix="/api", tags=["comments"])
-    print("✓ Comment router registered")
-except Exception as e:
-    print(f"✗ Failed to load comment router: {e}")
 
 @app.on_event("startup")
 async def startup_event():
     print("=" * 50)
-    print("🚀 Pet Finder API Started")
-    print("📝 Docs: http://localhost:8000/docs")
-    print("❤️  Health: http://localhost:8000/health")
+    print("Pet Finder API Started")
+    print("Docs available at http://localhost:8000/docs")
+    print("Health check at http://localhost:8000/health")
     print("=" * 50)

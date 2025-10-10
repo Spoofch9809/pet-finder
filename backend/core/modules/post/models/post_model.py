@@ -1,4 +1,4 @@
-from core.infrastructure.db import Base
+from ....infrastructure.db import Base
 from sqlalchemy import Column, Integer, String, TIMESTAMP, DateTime, ForeignKey, Text
 from sqlalchemy.dialects.mysql import BIT
 from sqlalchemy.orm import relationship

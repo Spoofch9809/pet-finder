@@ -1,20 +1,26 @@
-from pydantic import BaseModel
 from datetime import datetime
+from typing import Optional
 
-class CommentBase(BaseModel):
+from pydantic import BaseModel
+from pydantic import ConfigDict
+
+
+class CommentCreatePayload(BaseModel):
     comment: str
-    time_stamp: datetime
-
-
-class CommentCreate(CommentBase):
-    post_id: int
     user_id: int
 
 
-class CommentResponse(CommentBase):
+class CommentCreate(BaseModel):
+    post_id: int
+    user_id: int
+    comment: str
+
+
+class CommentResponse(BaseModel):
     comment_id: int
     post_id: int
     user_id: int
+    comment: str
+    time_stamp: Optional[datetime] = None
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

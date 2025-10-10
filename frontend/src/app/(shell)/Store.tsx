@@ -1,5 +1,30 @@
 "use client";
+import {
+  fetchBackendSnapshot,
+  postsAPI,
+  petsAPI,
+  breedsAPI,
+  speciesAPI,
+  postPicturesAPI,
+  usersAPI,
+  commentsAPI,
+  type User as BackendUser,
+  type Comment as BackendComment,
+} from "../services/api";
+
 import * as React from "react";
+
+export const AUTH_EVENT_NAME = "pf-auth-changed";
+export const AUTH_STORAGE_KEYS = [
+  "pf.posts",
+  "pf.pets",
+  "pf.profile",
+  "pf.filters",
+  "pf.radiusKm",
+  "pf.userLocation",
+  "pf.notifications",
+] as const;
+export const AUTH_META_KEYS = ["pfAuthUser", "pfAuthToken"] as const;
 
 /* =======================
    Types
@@ -7,8 +32,16 @@ import * as React from "react";
 export type Status = "Lost" | "Found";
 export type Species = "Dog" | "Cat" | "Other";
 
+export type PostComment = {
+  id: string;
+  userId: number | null;
+  text: string;
+  createdAt?: string;
+};
+
 export type Post = {
   id: string;
+  ownerId?: number | null;
   name: string;
   color?: string;
   species: Species;
@@ -20,8 +53,8 @@ export type Post = {
   description?: string;
   photoUrl?: string;
   createdAt: string;
-  likes?: number; // 👈 New
-  comments?: string[]; // ISO
+  likes?: number; // basic like counter placeholder
+  comments?: PostComment[];
 };
 
 export type Pet = {
@@ -63,6 +96,8 @@ type Filters = {
 };
 
 type Store = {
+  authUser: BackendUser | null;
+  isAuthenticated: boolean;
   posts: Post[];
   pets: Pet[];
   profile: Profile;
@@ -85,7 +120,7 @@ type Store = {
   deleteNotification: (id: string) => void;
   clearNotifications: () => void;
 
-  addPost: (p: Omit<Post, "id" | "createdAt">) => string;
+  addPost: (p: Omit<Post, "id" | "createdAt">) => Promise<string>;
   deletePost: (id: string) => void;
   markFound: (id: string) => void;
   getPost: (id: string) => Post | undefined;
@@ -96,7 +131,7 @@ type Store = {
   setProfile: (p: Partial<Profile>) => void;
   setFilters: (f: Partial<Filters>) => void;
 
-  // 👇 NEW feed methods
+  // NEW feed methods
   addLike: (id: string) => void;
   addComment: (id: string, text: string) => void;
 };
@@ -111,6 +146,12 @@ function persistJSON(key: string, value: unknown) {
   } catch (error) {
     console.warn(`pf: failed to persist ${key}`, error);
     if (error instanceof DOMException && error.name === "QuotaExceededError") {
+      try {
+        localStorage.removeItem(key);
+        console.warn(`pf: cleared cached ${key} to stay under storage limits.`);
+      } catch (cleanupError) {
+        console.warn(`pf: failed to clear cached ${key}`, cleanupError);
+      }
       console.warn("pf: browser storage quota exceeded; data will stay for this session only.");
     }
   }
@@ -123,57 +164,226 @@ function persistString(key: string, value: string) {
   } catch (error) {
     console.warn(`pf: failed to persist ${key}`, error);
     if (error instanceof DOMException && error.name === "QuotaExceededError") {
+      try {
+        localStorage.removeItem(key);
+        console.warn(`pf: cleared cached ${key} to stay under storage limits.`);
+      } catch (cleanupError) {
+        console.warn(`pf: failed to clear cached ${key}`, cleanupError);
+      }
       console.warn("pf: browser storage quota exceeded; data will stay for this session only.");
     }
   }
 }
 
+function clearAuthCaches() {
+  if (typeof window === "undefined") return;
+  try {
+    AUTH_STORAGE_KEYS.forEach((key) => window.localStorage.removeItem(key));
+  } catch (error) {
+    console.warn("pf: failed to clear cached auth data", error);
+  }
+}
+
+type BackendSnapshot = Awaited<ReturnType<typeof fetchBackendSnapshot>>;
+
+const DEFAULT_BREED_NAME = "Mixed Breed";
+
+function normalizePhoto(raw: unknown): string | undefined {
+  if (typeof raw !== 'string' || !raw.trim()) return undefined;
+  const value = raw.trim();
+  if (value.startsWith('data:')) return value;
+  if (/^https?:\/\//i.test(value)) return value;
+  return `data:image/jpeg;base64,${value}`;
+}
+
+function normalizeSpeciesName(name?: string | null): Species {
+  if (!name) return "Other";
+  const normalized = name.toLowerCase();
+  if (normalized.includes("dog")) return "Dog";
+  if (normalized.includes("cat")) return "Cat";
+  return "Other";
+}
+
+function mapBackendPosts(snapshot: BackendSnapshot): Post[] {
+  return snapshot.posts
+    .map((post) => {
+      const pet = snapshot.petsById[post.pet_id];
+      const speciesName = pet ? snapshot.speciesById[pet.species_id]?.species : undefined;
+      const breedName = pet ? snapshot.breedsById[pet.breed_id]?.breed : undefined;
+      const postPic = post.pictures?.[0]?.picture as unknown;
+      const petPhotos = snapshot.petPhotosByPetId[post.pet_id];
+      const petPic = Array.isArray(petPhotos) && petPhotos.length > 0 ? petPhotos[0].picture : undefined;
+      const photoUrl = normalizePhoto((postPic as string) || (petPic as string));
+      const backendComments = Array.isArray((post as any).comments)
+        ? ((post as any).comments as BackendComment[])
+        : [];
+      const comments: PostComment[] = backendComments.map((comment) => ({
+        id:
+          comment.comment_id !== undefined
+            ? String(comment.comment_id)
+            : crypto.randomUUID?.() || String(Math.random()),
+        userId: comment.user_id ?? null,
+        text: comment.comment,
+        createdAt: comment.time_stamp
+          ? new Date(comment.time_stamp).toISOString()
+          : undefined,
+      }));
+
+      let locationLat: number | undefined;
+      let locationLng: number | undefined;
+      if (typeof post.share_location === "string") {
+        try {
+          if (post.share_location.trim().startsWith("{")) {
+            const parsed = JSON.parse(post.share_location);
+            if (typeof parsed.lat === "number") locationLat = parsed.lat;
+            if (typeof parsed.lng === "number") locationLng = parsed.lng;
+          } else if (post.share_location.includes(",")) {
+            const [latStr, lngStr] = post.share_location.split(",");
+            const latNum = Number(latStr);
+            const lngNum = Number(lngStr);
+            if (Number.isFinite(latNum)) locationLat = latNum;
+            if (Number.isFinite(lngNum)) locationLng = lngNum;
+          }
+        } catch (err) {
+          console.warn("pf: failed to parse share_location", err);
+        }
+      }
+
+      const status: Status = post.status ? "Found" : "Lost";
+
+      let ownerId: number | undefined;
+      if (typeof post.user_id === "number") {
+        ownerId = post.user_id;
+      } else if (
+        typeof post.user_id === "string" &&
+        post.user_id.trim() !== ""
+      ) {
+        const parsedOwner = Number(post.user_id);
+        if (Number.isFinite(parsedOwner)) {
+          ownerId = parsedOwner;
+        }
+      }
+
+      return {
+        id: String(post.post_id),
+        ownerId,
+        name: pet?.name || `Pet #${post.pet_id}`,
+        color: pet?.color || undefined,
+        species: normalizeSpeciesName(speciesName),
+        breed: breedName || undefined,
+        location: post.location || undefined,
+        locationLat,
+        locationLng,
+        status,
+        description: post.description || pet?.description || undefined,
+        photoUrl,
+        createdAt: post.time_stamp ? new Date(post.time_stamp).toISOString() : new Date().toISOString(),
+        likes: comments.length,
+        comments,
+      };
+    })
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+async function ensureSpeciesId(name: string | undefined, snapshot: BackendSnapshot) {
+  const fallback = Object.values(snapshot.speciesById)[0];
+  const target = name?.trim();
+  if (!target) {
+    return fallback?.species_id ?? 1;
+  }
+  const normalized = target.toLowerCase();
+  const existing = Object.values(snapshot.speciesById).find((item) =>
+    item.species?.toLowerCase() === normalized
+  );
+  if (existing?.species_id) return existing.species_id;
+  const created = await speciesAPI.create({ species: target });
+  const createdId =
+    typeof created.species_id === "number"
+      ? created.species_id
+      : fallback?.species_id ?? 1;
+  if (typeof created.species_id === "number") {
+    snapshot.speciesById[created.species_id] = created;
+  }
+  snapshot.species.push(created);
+  return createdId;
+}
+
+
+async function ensureOwnerId(preferredOwnerId?: number | null): Promise<number> {
+  if (typeof preferredOwnerId === "number" && Number.isFinite(preferredOwnerId)) {
+    return preferredOwnerId;
+  }
+  try {
+    const users = await usersAPI.list();
+    const existing = users.find((u) => typeof u.user_id === "number");
+    if (existing?.user_id) return existing.user_id;
+    const username = `demo${Date.now()}`;
+    const created = await usersAPI.create({
+      username,
+      password: "changeme",
+      firstname: "Demo",
+      lastname: "User",
+    });
+    if (typeof created.user_id === "number") return created.user_id;
+  } catch (error) {
+    console.error("pf: ensureOwnerId failed", error);
+  }
+  return 1;
+}
+
+async function ensureBreedId(name: string | undefined, snapshot: BackendSnapshot) {
+  const label = name?.trim() || DEFAULT_BREED_NAME;
+  const normalized = label.toLowerCase();
+
+  const existing = Object.values(snapshot.breedsById).find((item) =>
+    item.breed?.toLowerCase() === normalized
+  );
+  if (existing?.breed_id) return existing.breed_id;
+
+  try {
+    const created = await breedsAPI.create({ breed: label });
+    if (typeof created.breed_id === "number") {
+      snapshot.breedsById[created.breed_id] = created;
+      snapshot.breeds.push(created);
+      return created.breed_id;
+    }
+  } catch (error) {
+    console.warn('pf: falling back to default breed', error);
+  }
+
+  const fallback = Object.values(snapshot.breedsById).find((item) =>
+    item.breed?.toLowerCase() === DEFAULT_BREED_NAME.toLowerCase()
+  );
+  if (fallback?.breed_id) return fallback.breed_id;
+
+  try {
+    const created = await breedsAPI.create({ breed: DEFAULT_BREED_NAME });
+    if (typeof created.breed_id === "number") {
+      snapshot.breedsById[created.breed_id] = created;
+      snapshot.breeds.push(created);
+      return created.breed_id;
+    }
+  } catch (error) {
+    console.error('pf: unable to create fallback breed', error);
+  }
+
+  const first = Object.values(snapshot.breedsById)[0];
+  return first?.breed_id ?? 1;
+}
+
+function extractBase64FromDataUrl(url: string | undefined) {
+  if (!url) return null;
+  const trimmed = url.trim();
+  if (!trimmed.startsWith("data:")) return null;
+  const match = /^data:([^;]+);base64,(.+)$/i.exec(trimmed);
+  if (!match) return null;
+  return { contentType: match[1], base64: match[2] };
+}
+
 /* =======================
    Defaults
 ======================= */
-const DEFAULT_POSTS: Post[] = [
-  {
-    id: crypto.randomUUID?.() || String(Math.random()),
-    name: "Ty",
-    species: "Dog",
-    status: "Found",
-    location: "Kmitl",
-    locationLat: 13.731,
-    locationLng: 100.778,
-    photoUrl:
-      "https://images.unsplash.com/photo-1507149833265-60c372daea22?q=80&w=1200&auto=format&fit=crop",
-    createdAt: new Date().toISOString(),
-    likes: 0,         // 👈 added
-    comments: [],     // 👈 added
-  },
-  {
-    id: crypto.randomUUID?.() || String(Math.random()),
-    name: "Tee",
-    species: "Dog",
-    status: "Lost",
-    location: "Rama 3",
-    locationLat: 13.695,
-    locationLng: 100.532,
-    photoUrl:
-      "https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=1200&auto=format&fit=crop",
-    createdAt: new Date().toISOString(),
-    likes: 0,         // 👈 added
-    comments: [],     // 👈 added
-  },
-];
-
-const DEFAULT_PETS: Pet[] = [
-  {
-    id: crypto.randomUUID?.() || String(Math.random()),
-    name: "Peam",
-    species: "Dog",
-    breed: "Dachshund",
-    color: "Brown",
-    age: "2 years",
-    photoUrl:
-      "https://images.unsplash.com/photo-1517849845537-4d257902454a?q=80&w=1200&auto=format&fit=crop",
-  },
-];
+const DEFAULT_PETS: Pet[] = [];
 
 const DEFAULT_PROFILE: Profile = { radiusKm: 5, pushEnabled: false };
 const DEFAULT_FILTERS: Filters = { query: "", status: "All", species: "All" };
@@ -182,7 +392,7 @@ const DEFAULT_FILTERS: Filters = { query: "", status: "All", species: "All" };
 const DEFAULT_NOTIFICATIONS: Notification[] = [
   {
     id: crypto.randomUUID?.() || String(Math.random()),
-    title: "User 1 has found a dog near KMITL 🎉",
+    title: "User 1 has found a dog near KMITL",
     body: "Tap to review the report and see if it matches your lost pet.",
     createdAt: new Date().toISOString(),
     postId: undefined,
@@ -207,6 +417,7 @@ export default function StoreProvider({
   children: React.ReactNode;
 }) {
   // Core state (hydrated on client)
+  const [authUser, setAuthUser] = React.useState<BackendUser | null>(null);
   const [posts, setPosts] = React.useState<Post[]>([]);
   const [pets, setPets] = React.useState<Pet[]>([]);
   const [profile, setProfileState] = React.useState<Profile>(DEFAULT_PROFILE);
@@ -221,13 +432,116 @@ export default function StoreProvider({
   // notifications
   const [notifications, setNotifications] = React.useState<Notification[]>([]);
 
+  const isMounted = React.useRef(true);
+
+  const loadPostsFromBackend = React.useCallback(async () => {
+    try {
+      const snapshot = await fetchBackendSnapshot();
+      if (!isMounted.current) return;
+      const mapped = mapBackendPosts(snapshot);
+      setPosts(mapped);
+    } catch (error) {
+      console.error("pf: failed to load posts from backend", error);
+      if (typeof window !== "undefined") {
+        try {
+          const cached = JSON.parse(window.localStorage.getItem("pf.posts") || "null");
+          if (Array.isArray(cached)) {
+            setPosts(cached);
+          }
+        } catch (fallbackError) {
+          console.warn("pf: failed to hydrate posts from local cache", fallbackError);
+        }
+      }
+    }
+  }, []);
+
+
+const syncPostToBackend = React.useCallback(
+  async (post: Post) => {
+    let backendId: string | null = null;
+    try {
+      const snapshot = await fetchBackendSnapshot();
+      const speciesId = await ensureSpeciesId(post.species, snapshot);
+      const breedId = await ensureBreedId(post.breed, snapshot);
+
+      const ownerId = await ensureOwnerId(authUser?.user_id);
+
+      const pet = await petsAPI.create({
+        owner_id: ownerId,
+        name: post.name,
+        breed_id: breedId,
+        species_id: speciesId,
+        color: post.color || "Unknown",
+        description: post.description || undefined,
+      });
+
+      const shareLocation =
+        typeof post.locationLat === "number" && typeof post.locationLng === "number"
+          ? JSON.stringify({ lat: post.locationLat, lng: post.locationLng })
+          : post.location || undefined;
+
+      const createdPost = await postsAPI.create({
+        user_id: ownerId,
+        pet_id: pet.pet_id ?? (pet as any)?.id ?? 1,
+        description: post.description || undefined,
+        location: post.location || undefined,
+        share_location: shareLocation,
+        lost_time: post.createdAt,
+        status: post.status === "Found",
+      });
+
+      const photo = extractBase64FromDataUrl(post.photoUrl);
+      if (photo && typeof createdPost.post_id === "number") {
+        await postPicturesAPI.add(
+          createdPost.post_id,
+          photo.base64,
+          photo.contentType
+        );
+      }
+
+      const backendPostId =
+        typeof createdPost.post_id === "number"
+          ? String(createdPost.post_id)
+          : post.id;
+      backendId = backendPostId;
+      const backendCreatedAt = createdPost.time_stamp
+        ? new Date(createdPost.time_stamp).toISOString()
+        : post.createdAt;
+      setPosts((cur) =>
+        cur.map((item) =>
+          item.id === post.id
+            ? {
+                ...item,
+                id: backendPostId,
+                createdAt: backendCreatedAt,
+                ownerId,
+              }
+            : item
+        )
+      );
+    } catch (error) {
+      console.error("pf: failed to sync post to backend", error);
+    } finally {
+      loadPostsFromBackend();
+    }
+    return backendId;
+  },
+  [authUser?.user_id, loadPostsFromBackend]
+);
+
+
   // ----- Hydrate (client only) -----
+  React.useEffect(() => {
+    loadPostsFromBackend();
+  }, [loadPostsFromBackend]);
+
+  React.useEffect(() => () => {
+    isMounted.current = false;
+  }, []);
+
   React.useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      setPosts(
-        JSON.parse(localStorage.getItem("pf.posts") || "null") || DEFAULT_POSTS
-      );
       setPets(
         JSON.parse(localStorage.getItem("pf.pets") || "null") || DEFAULT_PETS
       );
@@ -254,10 +568,62 @@ export default function StoreProvider({
         JSON.parse(localStorage.getItem("pf.notifications") || "null") ||
           DEFAULT_NOTIFICATIONS
       );
-    } catch (e) {
-      console.warn("Store hydration error:", e);
-    }
+  } catch (e) {
+    console.warn("Store hydration error:", e);
+  }
+}, []);
+
+const resetAuthScopedState = React.useCallback(() => {
+    setPosts([]);
+    setPets([]);
+    setNotifications([]);
+    setProfileState({ ...DEFAULT_PROFILE });
+    setFiltersState({ ...DEFAULT_FILTERS });
+    setRadiusKm(DEFAULT_PROFILE.radiusKm ?? 0);
+    setUserLocation(null);
+    setAuthUser(null);
   }, []);
+
+  const refreshAuthState = React.useCallback(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem("pfAuthUser");
+    if (!stored) {
+      resetAuthScopedState();
+      clearAuthCaches();
+      return;
+    }
+    try {
+      const parsed = JSON.parse(stored) as BackendUser;
+      setAuthUser(parsed);
+    } catch (error) {
+      console.warn("pf: failed to parse stored auth user", error);
+      resetAuthScopedState();
+      clearAuthCaches();
+      return;
+    }
+    loadPostsFromBackend();
+  }, [loadPostsFromBackend, resetAuthScopedState]);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleAuthEvent = () => refreshAuthState();
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key || AUTH_META_KEYS.includes(event.key as (typeof AUTH_META_KEYS)[number])) {
+        refreshAuthState();
+      }
+    };
+
+    window.addEventListener(AUTH_EVENT_NAME, handleAuthEvent);
+    window.addEventListener("storage", handleStorage);
+
+    refreshAuthState();
+
+    return () => {
+      window.removeEventListener(AUTH_EVENT_NAME, handleAuthEvent);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [refreshAuthState]);
 
   // ----- Persist -----
   React.useEffect(() => {
@@ -283,17 +649,38 @@ export default function StoreProvider({
   }, [notifications]);
 
   // ----- Post/Pet mutations -----
-  const addPost: Store["addPost"] = (p) => {
+  const addPost: Store["addPost"] = async (p) => {
     const id = crypto.randomUUID?.() || String(Math.random());
-    setPosts((cur) => [
-      { id, createdAt: new Date().toISOString(), likes: 0, comments: [], ...p }, // 👈 init likes/comments
-      ...cur,
-    ]);
-    return id;
+    const createdAt = new Date().toISOString();
+    const post: Post = {
+      id,
+      createdAt,
+      likes: 0,
+      comments: [],
+      ...p,
+      ownerId: authUser?.user_id ?? null,
+    };
+    setPosts((cur) => [post, ...cur]);
+    const backendId = await syncPostToBackend(post);
+    if (!backendId) {
+      console.warn("pf: post saved locally but backend sync failed");
+    }
+    return backendId ?? id;
   };
 
-  const deletePost: Store["deletePost"] = (id) =>
+  const deletePost: Store["deletePost"] = (id) => {
     setPosts((cur) => cur.filter((p) => p.id !== id));
+    const numericId = Number(id);
+    if (!Number.isNaN(numericId)) {
+      postsAPI
+        .delete(numericId)
+        .then(() => loadPostsFromBackend())
+        .catch((error) => {
+          console.error("pf: failed to delete post via API", error);
+          loadPostsFromBackend();
+        });
+    }
+  };
 
   const markFound: Store["markFound"] = (id) => {
     setPosts((cur) =>
@@ -301,12 +688,22 @@ export default function StoreProvider({
     );
     // Optional: drop a celebratory notification
     const post = posts.find((p) => p.id === id);
-    if (post) {
+    if (post && authUser?.user_id && post.ownerId === authUser.user_id) {
       addNotification({
-        title: `${post.name} was marked as Found 🎉`,
+        title: `${post.name} was marked as Found`,
         body: "Great news! Your report has been updated.",
         postId: id,
       });
+    }
+    const numericId = Number(id);
+    if (!Number.isNaN(numericId)) {
+      postsAPI
+        .update(numericId, { status: true })
+        .then(() => loadPostsFromBackend())
+        .catch((error) => {
+          console.error("pf: failed to update post status", error);
+          loadPostsFromBackend();
+        });
     }
   };
 
@@ -369,15 +766,45 @@ export default function StoreProvider({
   };
 
   const addComment: Store["addComment"] = (id, text) => {
-    if (!text?.trim()) return;
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    if (!authUser?.user_id) {
+      alert("Please sign in to leave a comment.");
+      return;
+    }
+
+    const optimisticComment: PostComment = {
+      id: crypto.randomUUID?.() || String(Math.random()),
+      userId: authUser.user_id,
+      text: trimmed,
+      createdAt: new Date().toISOString(),
+    };
+
     setPosts((cur) =>
       cur.map((p) =>
-        p.id === id ? { ...p, comments: [...(p.comments || []), text] } : p
+        p.id === id
+          ? { ...p, comments: [...(p.comments || []), optimisticComment] }
+          : p
       )
     );
+
+    const numericId = Number(id);
+    if (!Number.isNaN(numericId)) {
+      commentsAPI
+        .add(numericId, { user_id: authUser.user_id, comment: trimmed })
+        .then(() => loadPostsFromBackend())
+        .catch((error) => {
+          console.error("pf: failed to post comment", error);
+          loadPostsFromBackend();
+        });
+    }
   };
 
+  const isAuthenticated = Boolean(authUser?.user_id);
+
   const value: Store = {
+    authUser,
+    isAuthenticated,
     posts,
     pets,
     profile,
@@ -404,7 +831,7 @@ export default function StoreProvider({
     setProfile,
     setFilters,
 
-    // 👇 NEW feed methods
+    // NEW feed methods
     addLike,
     addComment,
   };
@@ -463,6 +890,14 @@ export function useFilteredPosts() {
     );
   }
   return res;
+}
+
+export function useMyPosts() {
+  const { posts, authUser } = useStore();
+  return React.useMemo(() => {
+    if (!authUser?.user_id) return [];
+    return posts.filter((post) => post.ownerId === authUser.user_id);
+  }, [posts, authUser?.user_id]);
 }
 
 /* =======================

@@ -9,6 +9,7 @@ def get_all_posts(db: Session):
         db.query(models.Post)
         .options(
             selectinload(models.Post.pictures),
+            selectinload(models.Post.comments),
             selectinload(models.Post.pet),
         )
         .all()
@@ -23,6 +24,19 @@ def create_post(db: Session, post_in: schema.PostCreate):
     timestamp = datetime.now(timezone.utc).replace(tzinfo=None)
     post = models.Post(post_id=next_id, time_stamp=timestamp, **payload)
     db.add(post)
+    db.commit()
+    db.refresh(post)
+    return post
+
+def update_post(db: Session, post_id: int, post_in: schema.PostUpdate):
+    post = get_post(db, post_id)
+    if not post:
+        return None
+
+    update_data = post_in.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(post, field, value)
+
     db.commit()
     db.refresh(post)
     return post

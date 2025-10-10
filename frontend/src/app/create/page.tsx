@@ -54,7 +54,7 @@ export default function Create() {
       return alert("Please drop a pin on the map for the lost location.");
     }
     const { locationAuto, ...payload } = form;
-    const id = addPost({ ...payload });
+    const id = await addPost({ ...payload });
     router.push(`/posts/${id}`);
   }
 

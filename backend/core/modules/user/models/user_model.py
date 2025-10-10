@@ -1,4 +1,4 @@
-from core.infrastructure.db import Base
+from ....infrastructure.db import Base
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
@@ -6,12 +6,12 @@ from sqlalchemy.dialects.mysql import MEDIUMTEXT
 class User(Base):
     __tablename__ = "user"
 
-    user_id = Column(Integer, primary_key=True, autoincrement=False)
-    username = Column(String(45), nullable=False)
-    password = Column(String(45), nullable=False)
+    user_id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String(45), nullable=False, unique=True)
+    password = Column(String(255), nullable=False)
     firstname = Column(String(45), nullable=False)
     lastname = Column(String(45), nullable=False)
-    email = Column(String(45))
+    email = Column(String(45), unique=True)
     phone = Column(Integer)
     address = Column(MEDIUMTEXT)
 
