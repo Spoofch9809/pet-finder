@@ -51,6 +51,12 @@ export interface PostPicture {
   content_type?: string;
 }
 
+export interface PetPhoto {
+  photo_id?: number;
+  pet_id: number;
+  picture: string;
+}
+
 export interface Breed {
   breed_id?: number;
   breed: string;

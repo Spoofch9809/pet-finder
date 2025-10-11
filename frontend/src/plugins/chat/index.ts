@@ -22,7 +22,8 @@ async function getImpl(): Promise<ProviderMod> {
   return cachedImpl!;
 }
 
-export const CHAT_PROVIDER = (providerName === "none" ? "none" : "cometchat") as const;
+export const CHAT_PROVIDER: "none" | "cometchat" =
+  providerName === "none" ? "none" : "cometchat";
 
 export async function initCometChat() {
   const impl = await getImpl();

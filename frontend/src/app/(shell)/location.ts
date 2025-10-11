@@ -31,3 +31,4 @@ export function formatLocationLabel(p: any): string {
 
   return "Unknown location";
 }
+

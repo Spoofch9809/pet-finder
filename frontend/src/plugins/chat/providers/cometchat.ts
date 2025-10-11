@@ -4,7 +4,8 @@
 // CometChat provider with SSR-safe lazy loading.
 // Avoids top-level importing of the SDK (which touches window).
 
-import type { CometChat as CometChatType } from "@cometchat/chat-sdk-javascript";
+// Use a loose type to avoid SDK ESM/CJS interop issues during type-checking
+type CometChatType = any;
 
 const appId = process.env.NEXT_PUBLIC_COMETCHAT_APP_ID;
 const region = process.env.NEXT_PUBLIC_COMETCHAT_REGION;
@@ -27,7 +28,7 @@ async function loadSDK(): Promise<CometChatType> {
     if (typeof window === "undefined") {
       throw new Error("CometChat SDK can only be loaded in the browser");
     }
-    sdkPromise = import("@cometchat/chat-sdk-javascript").then((m) => m.CometChat);
+    sdkPromise = import("@cometchat/chat-sdk-javascript").then((m: any) => m.CometChat as CometChatType);
   }
   sdk = await sdkPromise;
   return sdk;

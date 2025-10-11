@@ -126,6 +126,20 @@ type Store = {
   getPost: (id: string) => Post | undefined;
 
   addPet: (p: Omit<Pet, "id">) => string;
+  getPet: (id: string) => Pet | undefined;
+  updatePet: (
+    id: string,
+    data: {
+      name: string;
+      species: Species;
+      color?: string;
+      age?: string;
+      breed?: string;
+      notes?: string;
+      photoUrl?: string;
+      removePhoto?: boolean;
+    }
+  ) => Promise<void>;
   deletePet: (id: string) => void;
 
   setProfile: (p: Partial<Profile>) => void;
@@ -254,13 +268,13 @@ function mapBackendPosts(snapshot: BackendSnapshot): Post[] {
       let ownerId: number | undefined;
       if (typeof post.user_id === "number") {
         ownerId = post.user_id;
-      } else if (
-        typeof post.user_id === "string" &&
-        post.user_id.trim() !== ""
-      ) {
-        const parsedOwner = Number(post.user_id);
-        if (Number.isFinite(parsedOwner)) {
-          ownerId = parsedOwner;
+      } else {
+        const userIdAny = (post as any).user_id;
+        if (typeof userIdAny === "string" && userIdAny.trim() !== "") {
+          const parsedOwner = Number(userIdAny);
+          if (Number.isFinite(parsedOwner)) {
+            ownerId = parsedOwner;
+          }
         }
       }
 
@@ -714,6 +728,30 @@ const resetAuthScopedState = React.useCallback(() => {
     setPets((cur) => [{ id, ...p }, ...cur]);
     return id;
   };
+  const getPet: Store["getPet"] = (id) => pets.find((p) => p.id === id);
+  const updatePet: Store["updatePet"] = async (
+    id,
+    { name, species, color, age, breed, notes, photoUrl, removePhoto }
+  ) => {
+    setPets((cur) =>
+      cur.map((p) => {
+        if (p.id !== id) return p;
+        const next = { ...p } as Pet;
+        next.name = name;
+        next.species = species;
+        next.color = color;
+        next.age = age;
+        next.breed = breed;
+        next.notes = notes;
+        if (removePhoto) {
+          next.photoUrl = undefined;
+        } else if (photoUrl) {
+          next.photoUrl = photoUrl;
+        }
+        return next;
+      })
+    );
+  };
 
   const deletePet: Store["deletePet"] = (id) =>
     setPets((cur) => cur.filter((p) => p.id !== id));
@@ -827,6 +865,8 @@ const resetAuthScopedState = React.useCallback(() => {
     markFound,
     getPost,
     addPet,
+    getPet,
+    updatePet,
     deletePet,
     setProfile,
     setFilters,
@@ -897,7 +937,8 @@ export function useMyPosts() {
   const filtered = useFilteredPosts();
   return React.useMemo(() => {
     if (!authUser?.user_id) return [];
-    return filtered.filter((post) => post.ownerId === authUser.user_id);
+    const uid = Number(authUser.user_id);
+    return filtered.filter((post) => Number(post.ownerId) === uid);
   }, [filtered, authUser?.user_id]);
 }
 
