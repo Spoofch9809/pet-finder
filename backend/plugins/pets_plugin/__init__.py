@@ -1,0 +1,2 @@
+"""Pets domain plugin package."""
+

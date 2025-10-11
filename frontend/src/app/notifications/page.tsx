@@ -13,7 +13,7 @@ export default function NotificationsPage() {
   return (
     <section className="p-3">
       <div className="d-flex align-items-center justify-content-between mb-3">
-        <h4 className="mb-0">Notifications</h4>
+        <h4 className="mb-0">Notifications</h4>s
         {notifications.some((n) => !n.read) && (
           <button className="btn btn-sm btn-outline-primary" onClick={markAllNotificationsRead}>
             Mark all read

@@ -146,11 +146,16 @@ export default function ChatWidget() {
   }, [messages, scrollMessagesToBottom, isOpen, activePeer]);
 
   const fetchConversations = React.useCallback(async () => {
-    const request = new CometChat.ConversationsRequestBuilder()
-      .setLimit(30)
-      .setConversationType("user")
-      .build();
-    return request.fetchNext();
+    try {
+      const request = new CometChat.ConversationsRequestBuilder()
+        .setLimit(30)
+        .setConversationType("user")
+        .build();
+      return await request.fetchNext();
+    } catch (err) {
+      console.warn("Failed to fetch conversations", err);
+      return [] as any[];
+    }
   }, []);
 
   const refreshConversations = React.useCallback(async () => {
@@ -175,7 +180,11 @@ export default function ChatWidget() {
       setHasMoreMessages(false);
       setPendingPeer(null);
       if (listenerIdRef.current) {
-        CometChat.removeMessageListener(listenerIdRef.current);
+        try {
+          CometChat.removeMessageListener(listenerIdRef.current);
+        } catch {
+          // Provider might not be loaded yet; ignore.
+        }
         listenerIdRef.current = null;
       }
       logoutCometChatUser();
@@ -482,36 +491,47 @@ export default function ChatWidget() {
 
   React.useEffect(() => {
     if (status !== "ready" || !currentUid) return;
-    const listenerId = `pf-chat-${currentUid}`;
-    listenerIdRef.current = listenerId;
 
-    const listener = new CometChat.MessageListener({
-      onTextMessageReceived: async (message: CometChat.TextMessage) => {
-        await refreshConversations();
+    try {
+      const listenerId = `pf-chat-${currentUid}`;
+      listenerIdRef.current = listenerId;
 
-        const currentPeer = activePeerRef.current;
-        if (!currentPeer) return;
+      const listener = new CometChat.MessageListener({
+        onTextMessageReceived: async (message: CometChat.TextMessage) => {
+          try {
+            await refreshConversations();
+          } catch {}
 
-        const isForActiveConversation =
-          message.getReceiverType() === "user" &&
-          ((message.getSender()?.getUid() === currentPeer.uid &&
-            message.getReceiverId() === currentUid) ||
-            (message.getSender()?.getUid() === currentUid &&
-              message.getReceiverId() === currentPeer.uid));
+          const currentPeer = activePeerRef.current;
+          if (!currentPeer) return;
 
-        if (isForActiveConversation) {
-          shouldAutoScrollRef.current = true;
-          setMessages((prev) => [...prev, message]);
-        }
-      },
-    });
+          const isForActiveConversation =
+            message.getReceiverType() === "user" &&
+            ((message.getSender()?.getUid() === currentPeer.uid &&
+              message.getReceiverId() === currentUid) ||
+              (message.getSender()?.getUid() === currentUid &&
+                message.getReceiverId() === currentPeer.uid));
 
-    CometChat.addMessageListener(listenerId, listener);
+          if (isForActiveConversation) {
+            shouldAutoScrollRef.current = true;
+            setMessages((prev) => [...prev, message]);
+          }
+        },
+      });
 
-    return () => {
-      CometChat.removeMessageListener(listenerId);
-      listenerIdRef.current = null;
-    };
+      CometChat.addMessageListener(listenerId, listener);
+
+      return () => {
+        try {
+          if (listenerIdRef.current) {
+            CometChat.removeMessageListener(listenerIdRef.current);
+          }
+        } catch {}
+        listenerIdRef.current = null;
+      };
+    } catch (err) {
+      console.warn("Failed to setup chat message listener", err);
+    }
   }, [status, currentUid, refreshConversations]);
 
   const lastMessagePreview = React.useCallback(

@@ -1,10 +1,10 @@
 import sys
-from importlib import import_module
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
+from starlette.staticfiles import StaticFiles
 
 # Ensure project root is on sys.path so absolute imports work even when running from backend/app
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -12,6 +12,10 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
 app = FastAPI(title="Pet Finder API", version="1.0.0")
+
+# Determine if we have a built frontend to embed
+FRONTEND_OUT = PROJECT_ROOT / "frontend" / "out"
+EMBED_UI = FRONTEND_OUT.exists()
 
 # ===== CORS Configuration =====
 app.add_middleware(
@@ -28,9 +32,10 @@ app.add_middleware(
 )
 
 
-@app.get("/", include_in_schema=False)
-def root():
-    return RedirectResponse(url="/docs", status_code=307)
+if not EMBED_UI:
+    @app.get("/", include_in_schema=False)
+    def root():
+        return RedirectResponse(url="/docs", status_code=307)
 
 
 @app.get("/health")
@@ -38,27 +43,16 @@ def health_check():
     return {"status": "ok", "message": "Backend is running"}
 
 
-def register_router(name: str, import_path: str, attr: str = "router", prefix: str = "/api", tags: list[str] | None = None):
-    try:
-        module = import_module(import_path)
-        router = getattr(module, attr)
-        include_kwargs = {"prefix": prefix}
-        if tags is not None:
-            include_kwargs["tags"] = tags
-        app.include_router(router, **include_kwargs)
-        print(f"[PetFinder] Registered {name} routes")
-    except Exception as exc:
-        print(f"[PetFinder] Failed to register {name} routes: {exc}")
+# ===== Microkernel: Load Python plugins =====
+from backend.core.plugin_manager import PluginManager
 
+PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
+pm = PluginManager(PLUGINS_DIR)
+pm.discover_python_plugins(package_root_name="backend.plugins")
+pm.register_all(app)
 
-# ===== Register Routers =====
-register_router("user", "backend.core.modules.user.api.user_api", tags=["users"])
-register_router("pet", "backend.core.modules.pets.api.pet_api", tags=["pets"])
-register_router("breed", "backend.core.modules.pets.api.breed_api", attr="breed_router", tags=["breeds"])
-register_router("species", "backend.core.modules.pets.api.species_api", tags=["species"])
-register_router("pet photo", "backend.core.modules.pets.api.pet_photo_api", tags=["pet-photos"])
-register_router("post", "backend.core.modules.post.api.post_api", tags=["posts"])
-register_router("comment", "backend.core.modules.post.api.comment_api", tags=["comments"])
+# Keep native plugin loading (if any)
+pm.load_native_libs()
 
 
 @app.on_event("startup")
@@ -68,3 +62,12 @@ async def startup_event():
     print("Docs available at http://localhost:8000/docs")
     print("Health check at http://localhost:8000/health")
     print("=" * 50)
+
+# ===== Embedded UI (serve built Next.js export) =====
+# If the frontend has been exported via `npm run export`, serve it from the backend.
+if EMBED_UI:
+    try:
+        app.mount("/", StaticFiles(directory=str(FRONTEND_OUT), html=True), name="ui")
+        print(f"[PetFinder] Embedded UI mounted from: {FRONTEND_OUT}")
+    except Exception as exc:
+        print(f"[PetFinder] Failed to mount embedded UI: {exc}")

@@ -61,27 +61,7 @@ export default function PostDetails() {
     };
   }, [initialOwnerId]);
 
-  if (!post) {
-    return (
-      <section className="p-3">
-        <div className={styles.panel}>
-          <h5 className="mb-2">Post not found</h5>
-          <p className="text-muted mb-0">
-            We couldn’t find a record for this id. It may have been deleted.
-          </p>
-        </div>
-      </section>
-    );
-  }
-
-  const createdText = post.createdAt
-    ? new Date(post.createdAt).toLocaleString()
-    : "—";
-
-  const { lat, lng } = resolveLatLng(post);
-
-  const locationLabel = formatLocationLabel(post);
-
+  // Keep hook order stable across renders: compute memos before any early return
   const ownerAccountId = React.useMemo(() => {
     if (typeof initialOwnerId === "number") return initialOwnerId;
     const sanitizedUserId = sanitizeUidValue(ownerUser?.user_id);
@@ -120,11 +100,7 @@ export default function PostDetails() {
     return "Post owner";
   }, [ownerUser, post?.ownerId]);
 
-  const isOwner =
-    typeof authUser?.user_id === "number" &&
-    typeof ownerAccountId === "number" &&
-    authUser.user_id === ownerAccountId;
-  const handleMessageOwner = React.useCallback(() => {
+  function handleMessageOwner() {
     if (!ownerUid) {
       alert("Owner chat is temporarily unavailable.");
       return;
@@ -140,7 +116,33 @@ export default function PostDetails() {
       uid: ownerUid,
       name: ownerDisplayName,
     });
-  }, [ownerUid, ownerDisplayName, isOwner, isAuthenticated, router]);
+  }
+
+  if (!post) {
+    return (
+      <section className="p-3">
+        <div className={styles.panel}>
+          <h5 className="mb-2">Post not found</h5>
+          <p className="text-muted mb-0">
+            We couldn't find a record for this id. It may have been deleted.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  const createdText = post.createdAt
+    ? new Date(post.createdAt).toLocaleString()
+    : "-";
+
+  const { lat, lng } = resolveLatLng(post);
+
+  const locationLabel = formatLocationLabel(post);
+
+  const isOwner =
+    typeof authUser?.user_id === "number" &&
+    typeof ownerAccountId === "number" &&
+    authUser.user_id === ownerAccountId;
 
   // Lightweight embedded map (no API key required).
   const mapSrc =

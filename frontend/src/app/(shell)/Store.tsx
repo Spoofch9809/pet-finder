@@ -893,11 +893,12 @@ export function useFilteredPosts() {
 }
 
 export function useMyPosts() {
-  const { posts, authUser } = useStore();
+  const { authUser } = useStore();
+  const filtered = useFilteredPosts();
   return React.useMemo(() => {
     if (!authUser?.user_id) return [];
-    return posts.filter((post) => post.ownerId === authUser.user_id);
-  }, [posts, authUser?.user_id]);
+    return filtered.filter((post) => post.ownerId === authUser.user_id);
+  }, [filtered, authUser?.user_id]);
 }
 
 /* =======================
