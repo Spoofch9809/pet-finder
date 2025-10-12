@@ -933,13 +933,14 @@ export function useFilteredPosts() {
 }
 
 export function useMyPosts() {
-  const { authUser } = useStore();
-  const filtered = useFilteredPosts();
+  const { authUser, posts } = useStore();
+  // Intentionally ignore global text/species/status/radius filters for "My Posts"
+  // so users always see everything they created.
   return React.useMemo(() => {
     if (!authUser?.user_id) return [];
     const uid = Number(authUser.user_id);
-    return filtered.filter((post) => Number(post.ownerId) === uid);
-  }, [filtered, authUser?.user_id]);
+    return posts.filter((post) => Number(post.ownerId) === uid);
+  }, [posts, authUser?.user_id]);
 }
 
 /* =======================

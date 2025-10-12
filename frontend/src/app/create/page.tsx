@@ -7,7 +7,7 @@ import React from "react";
 import { Loader } from "@googlemaps/js-api-loader";
 
 export default function Create() {
-  const { addPost } = useStore();
+  const { addPost, isAuthenticated } = useStore();
   const router = useRouter();
 
   const [form, setForm] = React.useState({
@@ -45,6 +45,18 @@ export default function Create() {
     setFileName(f.name);
     const url = await fileToDataUrl(f);
     update("photoUrl", url);
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <section className="p-5 text-center text-muted">
+        <div className="mb-3 fw-semibold fs-5">Sign in to create a post</div>
+        <p className="mb-4">
+          Please sign in so we can attach your report to your account.
+        </p>
+        <a className="btn btn-primary" href="/signin">Go to Sign In</a>
+      </section>
+    );
   }
 
   async function submit(e: React.FormEvent) {

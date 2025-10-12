@@ -107,7 +107,7 @@ export default function Settings() {
             <h5 className="mb-3">Account Information</h5>
             <div className="row g-3 align-items-center">
               <div className="col-auto">
-                <img src="https://i.pravatar.cc/100?img=32" className={`border ${styles.avatar}`} alt="avatar"/>
+                <img src="https://i.pravatar.cc/100?img=12" className={`border ${styles.avatar}`} alt="avatar"/>
               </div>
               <div className="col-md-6">
                 <label className="form-label">Username</label>

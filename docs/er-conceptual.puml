@@ -1,0 +1,97 @@
+@startuml
+' Conceptual ER close to your sketch
+hide circle
+skinparam linetype ortho
+
+skinparam entity {
+  BackgroundColor<<Concept>> #FFF9E6
+  BorderColor #888888
+}
+
+' ===== Entities (conceptual) =====
+entity "User" as user <<Concept>> {
+  + User_id : int <<PK>>
+  --
+  Fullname  : string
+  Email     : string
+  Password  : string
+  Phone     : string
+  City      : string
+}
+
+entity "Pets" as pets <<Concept>> {
+  + Pet_id   : int <<PK>>
+  --
+  User_id(FK) : int
+  Name        : string
+  Age         : int
+  Breed       : string
+  Species     : string
+  Color       : string
+  Lost_time   : datetime
+}
+
+entity "PetPhoto" as petphoto <<Concept>> {
+  + Petphoto_id : int <<PK>>
+  --
+  Pet_id(FK) : int
+  Photourl   : string
+}
+
+entity "Lost Report" as report <<Concept>> {
+  + Report_id : int <<PK>>
+  --
+  User_id(FK) : int
+  Pet_id(FK)  : int
+  Status      : boolean
+  Description : text
+}
+
+entity "Sighting" as sighting <<Concept>> {
+  + Sighting_id : int <<PK>>
+  --
+  Report_id(FK) : int
+  Pet_id(FK)    : int
+  User_id(FK)   : int
+  Address       : string
+  Seen_at       : datetime
+  Photourl      : string
+}
+
+entity "Notification" as notif <<Concept>> {
+  + Noti_id : int <<PK>>
+  --
+  User_id(FK)  : int
+  Report_id(FK): int
+  Message      : string
+  Read_status  : boolean
+}
+
+entity "Favorites" as fav <<Concept>> {
+  + Fav_id : int <<PK>>
+  --
+  User_id(FK) : int
+  Pet_id(FK)  : int
+}
+
+' ===== Relationships (crow's foot) =====
+user  ||--o{ pets     : Owns
+pets  ||--o{ petphoto : Has
+
+user  ||--o{ report   : Creates
+pets  ||--o{ report   : Subject of
+report||--o{ sighting : Reports
+
+user  ||--o{ notif    : Receives
+report||--o{ notif    : about
+
+user  ||--o{ fav      : favorites
+pets  ||--o{ fav      : favorited
+
+legend left
+This is a conceptual ERD to match your sketch.
+It includes extra entities (Sighting, Notification, Favorites)
+that are not necessarily present in the current DB schema.
+endlegend
+@enduml
+
